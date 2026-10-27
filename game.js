@@ -1,29 +1,13 @@
-
+```javascript
 "use strict";
 
 /* =====================================================
    CROWN QUEST — GAME.JS
-   Runner-game met 10 werelden en eindbaasgevechten.
-   Werkt samen met app.js.
+   Runner game with 10 worlds and boss battles.
+   Requires app.js and <canvas id="game">.
    ===================================================== */
 
-function initGame() {
-  const canvas = document.getElementById("game");
-  if (!canvas) return;
-
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return;
-
-  // Voorkom dubbele game-instanties.
-  if (window.crownQuestGame?.canvas === canvas) {
-    window.crownQuestGame.startLevel();
-    return;
-  }
-
-  const floor = 326;
-  const canvasWidth = canvas.width;
-  const canvasHeight = canvas.height;
-
+(() => {
   const palettes = [
     ["#9ddf8c", "#398b54", "#1a573d"],
     ["#d1eaff", "#6da7dc", "#355e9b"],
@@ -37,31 +21,45 @@ function initGame() {
     ["#ffedac", "#d7a84d", "#78572c"]
   ];
 
+  let canvas;
+  let ctx;
   let player;
   let obstacles = [];
   let coins = [];
   let powerups = [];
 
-  let scroll = 0;
   let running = false;
   let finished = false;
+  let gameOver = false;
   let raf = 0;
+  let lastFrame = 0;
+  let scroll = 0;
+  let elapsed = 0;
   let runCoins = 0;
   let bossHP = 3;
   let bossMaxHP = 3;
   let bossCooldown = 0;
-  let slideTimer = 0;
-  let lastFrame = 0;
-  let elapsed = 0;
-
   let activeLevel = 1;
   let activeBoss = false;
+  let deathTimer = 0;
+  let messageTimer = 0;
+  let temporaryMessage = "";
+
+  const floor = 326;
+  const WIDTH = 960;
+  const HEIGHT = 380;
+  const SHOWCASE_KEY = "crownQuestShowcase";
+  const DEATH_DURATION = 55;
 
   function rand(min, max) {
     return min + Math.random() * (max - min);
   }
 
-  function rounded(x, y, w, h, radius, color) {
+  function clamp(value, min, max) {
+    return Math.max(min, Math.min(max, value));
+  }
+
+  function roundRect(x, y, w, h, radius, color) {
     ctx.fillStyle = color;
     ctx.beginPath();
 
@@ -74,43 +72,73 @@ function initGame() {
     ctx.fill();
   }
 
-  function getLevel() {
-    return typeof gameState !== "undefined"
-      ? gameState.currentLevel
-      : 1;
+  function currentState() {
+    return typeof gameState !== "undefined" ? gameState : null;
   }
 
-  function getWorld() {
+  function worldNumber() {
     return typeof getWorldNumber === "function"
       ? getWorldNumber(activeLevel)
-      : 1;
+      : Math.floor((activeLevel - 1) / 21) + 1;
   }
 
-  function getLocalLevel() {
+  function localLevel() {
     return typeof getLevelInWorld === "function"
       ? getLevelInWorld(activeLevel)
       : ((activeLevel - 1) % 21) + 1;
   }
 
-  function isBoss() {
-    return typeof isBossLevel === "function"
-      ? isBossLevel(activeLevel)
-      : getLocalLevel() === 21;
+  function isBossLevel() {
+    return localLevel() === 21;
   }
 
-  function getWorldPalette() {
-    return palettes[(getWorld() - 1) % palettes.length];
+  function worldPalette() {
+    return palettes[(worldNumber() - 1) % palettes.length];
   }
 
   function setStatus(message) {
     const element = document.getElementById("gameStatus");
+    if (element) element.textContent = message;
+  }
 
-    if (element) {
-      element.textContent = message;
+  function showMessage(message, duration = 1800) {
+    temporaryMessage = message;
+    messageTimer = duration;
+    setStatus(message);
+  }
+
+  function getSelectedPet() {
+    const state = currentState();
+
+    if (!state || !Array.isArray(state.pets) || !state.pets.length) {
+      return {
+        id: "starter-fox",
+        name: "Forest Fox",
+        emoji: "🦊",
+        rarity: "common"
+      };
     }
+
+    let selectedId = null;
+
+    try {
+      selectedId = localStorage.getItem(SHOWCASE_KEY);
+    } catch (_) {}
+
+    // New format: store the selected pet ID.
+    let pet = state.pets.find(item => item.id === selectedId);
+
+    // Backwards compatibility with the old emoji-based selection.
+    if (!pet && selectedId) {
+      pet = state.pets.find(item => item.emoji === selectedId);
+    }
+
+    return pet || state.pets[0];
   }
 
   function resetPlayer() {
+    const pet = getSelectedPet();
+
     player = {
       x: 100,
       y: floor - 42,
@@ -120,47 +148,59 @@ function initGame() {
       ground: true,
       sliding: false,
       dash: 0,
-      shield: 0
+      shield: 0,
+      invulnerable: 0,
+      dead: false,
+      deathFrame: 0,
+      pet
     };
   }
 
-  /* ===============================================
-     LEVEL OPBOUWEN
-     =============================================== */
-
-  function build() {
+  function buildLevel() {
     obstacles = [];
     coins = [];
     powerups = [];
+
     scroll = 0;
+    elapsed = 0;
     runCoins = 0;
     bossHP = 3;
     bossMaxHP = 3;
     bossCooldown = 0;
-    elapsed = 0;
 
-    activeLevel = getLevel();
-    activeBoss = isBoss();
+    activeLevel = currentState()?.currentLevel || 1;
+    activeBoss = isBossLevel();
 
     let x = 430;
 
-    // Eindbaaslevels hebben minder obstakels vóór de baas.
-    const count = activeBoss
+    const obstacleCount = activeBoss
       ? 4
-      : 9 + Math.min(10, getLocalLevel());
+      : 9 + Math.min(10, localLevel());
 
-    for (let i = 0; i < count; i++) {
+    for (let i = 0; i < obstacleCount; i++) {
       x += rand(180, 270);
+
+      const roll = Math.random();
+      let kind;
+
+      if (roll < 0.30) {
+        kind = "low";
+      } else if (roll < 0.55) {
+        kind = "special";
+      } else if (roll < 0.77) {
+        kind = "tall";
+      } else {
+        kind = "spike";
+      }
 
       obstacles.push({
         x,
-        w: rand(25, 40),
-        h: rand(27, 65),
-        kind: Math.random() < 0.25 ? "tall" : "spike",
+        w: kind === "special" ? 42 : rand(28, 42),
+        h: kind === "low" ? 24 : kind === "special" ? 48 : rand(32, 65),
+        kind,
         hit: false
       });
 
-      // Munten rond het obstakel.
       if (Math.random() < 0.85) {
         for (let c = 0; c < 3; c++) {
           coins.push({
@@ -171,7 +211,6 @@ function initGame() {
         }
       }
 
-      // Power-ups.
       if (Math.random() < 0.22) {
         powerups.push({
           x: x - 65,
@@ -185,6 +224,7 @@ function initGame() {
     if (activeBoss) {
       x += 300;
 
+      // Exactly one boss obstacle.
       obstacles.push({
         x,
         w: 100,
@@ -193,7 +233,6 @@ function initGame() {
         hit: false
       });
 
-      // Extra munten vóór de eindbaas.
       for (let i = 0; i < 5; i++) {
         coins.push({
           x: x - 190 + i * 32,
@@ -204,74 +243,62 @@ function initGame() {
     }
   }
 
-  /* ===============================================
-     LEVEL STARTEN
-     =============================================== */
-
   function startLevel() {
+    if (!canvas || !ctx) return;
+
     cancelAnimationFrame(raf);
-    clearTimeout(slideTimer);
 
-    resetPlayer();
-
+    running = false;
     finished = false;
-    running = true;
+    gameOver = false;
+    deathTimer = 0;
     lastFrame = 0;
 
-    build();
+    resetPlayer();
+    buildLevel();
+
+    running = true;
 
     if (activeBoss) {
-      const bossName = typeof getBossInfo === "function"
-        ? getBossInfo(activeLevel).name
-        : "Eindbaas";
+      const info = typeof getBossInfo === "function"
+        ? getBossInfo(activeLevel)
+        : { name: "World Boss" };
 
-      setStatus("👑 Eindbaasgevecht: " + bossName + "! Gebruik Shift om aan te vallen.");
+      setStatus(
+        "Boss Battle: " + info.name +
+        "! Use Shift or Dash to attack."
+      );
     } else {
-      setStatus("Verzamel munten, ontwijk obstakels en bereik de finish!");
+      setStatus("Collect Crowns, avoid obstacles, and reach the finish!");
     }
 
     draw();
     raf = requestAnimationFrame(tick);
   }
 
-  /* ===============================================
-     BESTURING
-     =============================================== */
-
   function jump() {
     if (!running) {
-      startLevel();
+      if (gameOver || finished) startLevel();
       return;
     }
 
-    if (player.ground) {
+    if (player.ground && !player.dead) {
       player.vy = -14;
       player.ground = false;
       player.sliding = false;
-      clearTimeout(slideTimer);
     }
   }
 
   function slide() {
-    if (!running) {
-      startLevel();
-      return;
-    }
+    if (!running || !player.ground || player.dead) return;
 
-    if (player.ground) {
-      player.sliding = true;
-
-      clearTimeout(slideTimer);
-
-      slideTimer = setTimeout(() => {
-        if (player) player.sliding = false;
-      }, 650);
-    }
+    player.sliding = true;
+    player.slideTimer = 38;
   }
 
   function dash() {
-    if (!running) {
-      startLevel();
+    if (!running || player.dead) {
+      if (gameOver || finished) startLevel();
       return;
     }
 
@@ -279,153 +306,118 @@ function initGame() {
   }
 
   function move(direction) {
-    if (!running) {
-      startLevel();
+    if (!running || player.dead) {
+      if (gameOver || finished) startLevel();
       return;
     }
 
-    player.x = Math.max(
-      25,
-      Math.min(280, player.x + direction * 22)
-    );
+    player.x = clamp(player.x + direction * 22, 25, 280);
   }
-
-  /* ===============================================
-     SPELER TEKENEN
-     =============================================== */
-
-  function drawHero() {
-    const x = player.x;
-    const y = player.y + (player.sliding ? 16 : 0);
-    const h = player.sliding ? 25 : player.h;
-
-    ctx.save();
-    ctx.translate(x, y);
-
-    // Schaduw.
-    ctx.fillStyle = "#183b2b";
-    ctx.beginPath();
-    ctx.ellipse(17, h - 2, 19, 5, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Lichaam.
-    rounded(5, 12, 25, h - 15, 9, "#4eaf67");
-
-    ctx.fillStyle = "#267849";
-    ctx.beginPath();
-    ctx.ellipse(17, 23, 15, 17, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Gezicht.
-    ctx.fillStyle = "#d4b77b";
-    ctx.beginPath();
-    ctx.ellipse(17, 20, 12, 11, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Bandana.
-    rounded(3, 8, 28, 10, 4, "#c63d52");
-
-    ctx.fillStyle = "#f3f0db";
-    ctx.fillRect(7, 11, 7, 3);
-    ctx.fillRect(20, 11, 7, 3);
-
-    ctx.fillStyle = "#14221b";
-    ctx.beginPath();
-    ctx.ellipse(12, 19, 2.5, 4, 0, 0, Math.PI * 2);
-    ctx.ellipse(22, 19, 2.5, 4, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Voeten.
-    ctx.fillStyle = "#f0c65d";
-    ctx.fillRect(6, h - 5, 10, 5);
-    ctx.fillRect(20, h - 5, 10, 5);
-
-    ctx.strokeStyle = "#bde9b5";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(8, 30);
-    ctx.lineTo(24, 30);
-    ctx.stroke();
-
-    // Dash-effect.
-    if (player.dash > 0) {
-      ctx.globalAlpha = 0.55;
-      rounded(-24, 15, 25, 8, 4, "#ffe082");
-      rounded(-38, 23, 30, 6, 3, "#fff0ae");
-    }
-
-    ctx.restore();
-  }
-
-  /* ===============================================
-     ACHTERGROND
-     =============================================== */
 
   function drawBackground() {
-    const palette = getWorldPalette();
+    const palette = worldPalette();
+    const gradient = ctx.createLinearGradient(0, 0, 0, HEIGHT);
 
-    const background = ctx.createLinearGradient(
-      0, 0, 0, canvasHeight
-    );
+    gradient.addColorStop(0, palette[0]);
+    gradient.addColorStop(1, palette[1]);
 
-    background.addColorStop(0, palette[0]);
-    background.addColorStop(1, palette[1]);
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, WIDTH, HEIGHT);
 
-    ctx.fillStyle = background;
-    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-
-    // Heuvels.
     for (let i = 0; i < 7; i++) {
-      const x =
-        ((i * 190 - scroll * 0.2) % 1250 + 1250) % 1250 - 120;
+      const x = ((i * 190 - scroll * 0.2) % 1250 + 1250) % 1250 - 120;
 
       ctx.fillStyle = i % 2 ? palette[1] : palette[2];
-
       ctx.beginPath();
       ctx.ellipse(x, 280, 150, 95, 0, Math.PI, 0);
       ctx.fill();
     }
 
-    // Lichtjes.
     for (let i = 0; i < 45; i++) {
-      let x = (i * 83 - scroll * 0.35) % canvasWidth;
-
-      if (x < 0) x += canvasWidth;
+      let x = (i * 83 - scroll * 0.35) % WIDTH;
+      if (x < 0) x += WIDTH;
 
       ctx.fillStyle = i % 3 === 0 ? "#fff1a0" : "#d7ffe0";
       ctx.globalAlpha = i % 3 === 0 ? 0.9 : 0.35;
-
       ctx.fillRect(x, (i * 47) % 270 + 20, 3, 3);
     }
 
     ctx.globalAlpha = 1;
-
-    // Grond.
     ctx.fillStyle = palette[2];
-    ctx.fillRect(0, floor, canvasWidth, canvasHeight - floor);
+    ctx.fillRect(0, floor, WIDTH, HEIGHT - floor);
 
     ctx.fillStyle = "#ffffff24";
 
     for (let i = 0; i < 25; i++) {
-      let x = (i * 53 - scroll * 0.6) % canvasWidth;
-
-      if (x < 0) x += canvasWidth;
-
+      let x = (i * 53 - scroll * 0.6) % WIDTH;
+      if (x < 0) x += WIDTH;
       ctx.fillRect(x, floor + 18, 20, 3);
     }
   }
 
-  /* ===============================================
-     OBSTAKELS, MUNTEN EN POWER-UPS
-     =============================================== */
+  function drawHero() {
+    const pet = player.pet || getSelectedPet();
+    const x = player.x;
+    let y = player.y;
+
+    if (player.dead) {
+      // Simple animated knockback and fade.
+      y -= Math.sin(player.deathFrame * 0.12) * 8;
+    }
+
+    const height = player.sliding && !player.dead ? 25 : player.h;
+
+    ctx.save();
+    ctx.globalAlpha = player.invulnerable > 0
+      ? (Math.floor(player.invulnerable / 5) % 2 ? 0.4 : 1)
+      : 1;
+
+    ctx.translate(x + 17, y + height / 2);
+
+    if (player.dead) {
+      ctx.rotate(Math.min(1.3, player.deathFrame * 0.035));
+    }
+
+    // Shadow.
+    ctx.fillStyle = "#183b2b";
+    ctx.beginPath();
+    ctx.ellipse(0, height / 2 - 1, 19, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Character body.
+    roundRect(-13, -height / 2 + 10, 26, height - 12, 9, "#4eaf67");
+
+    // Selected character emoji.
+    ctx.font = player.sliding ? "25px sans-serif" : "32px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(pet.emoji || "🦊", 0, player.sliding ? 0 : -3);
+
+    // Dash effect.
+    if (player.dash > 0) {
+      ctx.globalAlpha = 0.6;
+      roundRect(-47, -3, 25, 7, 4, "#ffe082");
+      roundRect(-60, 6, 30, 5, 3, "#fff0ae");
+    }
+
+    if (player.shield > 0) {
+      ctx.globalAlpha = 0.45;
+      ctx.strokeStyle = "#65d9f4";
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.arc(0, 0, 29, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    ctx.restore();
+  }
 
   function drawCoins() {
     for (const coin of coins) {
       if (coin.taken) continue;
 
       const x = coin.x - scroll;
-
-      if (x < -20 || x > canvasWidth + 20) continue;
+      if (x < -20 || x > WIDTH + 20) continue;
 
       ctx.fillStyle = "#ffd166";
       ctx.beginPath();
@@ -439,67 +431,59 @@ function initGame() {
   }
 
   function drawPowerups() {
-    for (const powerup of powerups) {
-      if (powerup.taken) continue;
+    for (const item of powerups) {
+      if (item.taken) continue;
 
-      const x = powerup.x - scroll;
+      const x = item.x - scroll;
+      if (x < -30 || x > WIDTH + 30) continue;
 
-      if (x < -30 || x > canvasWidth + 30) continue;
-
-      rounded(
+      roundRect(
         x - 10,
-        powerup.y - 10,
+        item.y - 10,
         20,
         20,
         5,
-        powerup.kind === "shield" ? "#65d9f4" : "#ffcf5c"
+        item.kind === "shield" ? "#65d9f4" : "#ffcf5c"
       );
 
       ctx.fillStyle = "#183026";
       ctx.font = "bold 13px system-ui";
-
-      ctx.fillText(
-        powerup.kind === "shield" ? "S" : "+",
-        x - 4,
-        powerup.y + 5
-      );
+      ctx.fillText(item.kind === "shield" ? "S" : "+", x - 4, item.y + 5);
     }
   }
 
   function drawBoss(obstacle, x) {
     const y = floor - obstacle.h;
 
-    // Lichaam van de baas.
-    rounded(x, y, obstacle.w, obstacle.h, 15, "#633a80");
+    roundRect(x, y, obstacle.w, obstacle.h, 15, "#633a80");
 
-    // Hoofd.
     ctx.fillStyle = "#c58cff";
     ctx.beginPath();
     ctx.arc(x + obstacle.w / 2, y + 30, 24, 0, Math.PI * 2);
     ctx.fill();
 
-    // Ogen.
     ctx.fillStyle = "#25172e";
     ctx.fillRect(x + obstacle.w / 2 - 13, y + 25, 7, 8);
     ctx.fillRect(x + obstacle.w / 2 + 6, y + 25, 7, 8);
 
-    // Mond.
     ctx.fillStyle = "#fff";
     ctx.fillRect(x + obstacle.w / 2 - 10, y + 43, 20, 5);
 
-    // Gezondheidsbalk.
-    rounded(x - 5, y - 18, obstacle.w + 10, 10, 4, "#27152e");
+    // Boss HP bar.
+    roundRect(x - 5, y - 18, obstacle.w + 10, 10, 4, "#27152e");
 
     const ratio = Math.max(0, bossHP / bossMaxHP);
 
-    rounded(
-      x - 3,
-      y - 16,
-      (obstacle.w + 6) * ratio,
-      6,
-      3,
-      "#ff637d"
-    );
+    if (ratio > 0) {
+      roundRect(
+        x - 3,
+        y - 16,
+        (obstacle.w + 6) * ratio,
+        6,
+        3,
+        "#ff637d"
+      );
+    }
 
     ctx.fillStyle = "#fff";
     ctx.font = "bold 12px system-ui";
@@ -514,29 +498,31 @@ function initGame() {
 
   function drawObstacles() {
     for (const obstacle of obstacles) {
-      const x = obstacle.x - scroll;
+      if (obstacle.hit) continue;
 
-      if (x < -130 || x > canvasWidth + 130) continue;
+      const x = obstacle.x - scroll;
+      if (x < -130 || x > WIDTH + 130) continue;
 
       if (obstacle.kind === "boss") {
         drawBoss(obstacle, x);
-      } else if (obstacle.kind === "tall") {
-        rounded(
-          x,
-          floor - obstacle.h,
-          obstacle.w,
-          obstacle.h,
-          5,
-          "#7c4f35"
-        );
+        continue;
+      }
 
+      if (obstacle.kind === "low") {
+        // Low overhead barrier: slide underneath.
+        roundRect(x, floor - obstacle.h, obstacle.w, obstacle.h, 5, "#477f9b");
+        ctx.fillStyle = "#a9efff";
+        ctx.fillRect(x + 4, floor - obstacle.h + 5, obstacle.w - 8, 4);
+      } else if (obstacle.kind === "special") {
+        // Dash-only breakable obstacle.
+        roundRect(x, floor - obstacle.h, obstacle.w, obstacle.h, 6, "#a44bba");
+        ctx.fillStyle = "#f3b4ff";
+        ctx.fillRect(x + 8, floor - obstacle.h + 8, 6, obstacle.h - 16);
+        ctx.fillRect(x + obstacle.w - 14, floor - obstacle.h + 8, 6, obstacle.h - 16);
+      } else if (obstacle.kind === "tall") {
+        roundRect(x, floor - obstacle.h, obstacle.w, obstacle.h, 5, "#7c4f35");
         ctx.fillStyle = "#bd8b58";
-        ctx.fillRect(
-          x + 5,
-          floor - obstacle.h + 7,
-          5,
-          obstacle.h - 10
-        );
+        ctx.fillRect(x + 5, floor - obstacle.h + 7, 5, obstacle.h - 10);
       } else {
         ctx.fillStyle = "#d45c6b";
         ctx.beginPath();
@@ -549,50 +535,49 @@ function initGame() {
     }
   }
 
+  function finishWorldPosition() {
+    const last = obstacles[obstacles.length - 1];
+    return (last ? last.x : 1500) + 350;
+  }
+
   function drawFinish() {
     if (activeBoss) return;
 
-    const lastObstacle = obstacles[obstacles.length - 1];
-    const finishX = (lastObstacle ? lastObstacle.x : 1500) + 350 - scroll;
+    const x = finishWorldPosition() - scroll;
 
     ctx.fillStyle = "#ffd166";
-    ctx.fillRect(finishX, floor - 90, 7, 90);
-    ctx.fillRect(finishX + 42, floor - 90, 7, 90);
-    ctx.fillRect(finishX, floor - 90, 49, 7);
+    ctx.fillRect(x, floor - 90, 7, 90);
+    ctx.fillRect(x + 42, floor - 90, 7, 90);
+    ctx.fillRect(x, floor - 90, 49, 7);
 
     ctx.fillStyle = "#fff4d1";
-    ctx.fillRect(finishX + 7, floor - 82, 35, 20);
+    ctx.fillRect(x + 7, floor - 82, 35, 20);
 
     ctx.fillStyle = "#203027";
     ctx.font = "bold 10px system-ui";
-    ctx.fillText("FINISH", finishX + 9, floor - 69);
+    ctx.fillText("FINISH", x + 9, floor - 69);
   }
 
-  /* ===============================================
-     HUD EN SCHERMEN
-     =============================================== */
-
   function drawHUD() {
-    rounded(12, 12, 310, 38, 8, "#0b211b");
+    roundRect(12, 12, 310, 38, 8, "#0b211b");
 
     ctx.fillStyle = "#fff";
     ctx.font = "bold 15px system-ui";
-
     ctx.fillText(
-      `WORLD ${getWorld()} · LEVEL ${getLocalLevel()}`,
+      `WORLD ${worldNumber()} · LEVEL ${localLevel()}`,
       24,
       36
     );
 
+    const totalCoins = (currentState()?.coins || 0) + runCoins;
     ctx.fillStyle = "#ffd166";
-    ctx.fillText("◆ " + (gameState.coins + runCoins), 245, 36);
+    ctx.fillText("◆ " + totalCoins, 245, 36);
 
     if (activeBoss) {
-      rounded(690, 15, 250, 35, 8, "#27152e");
+      roundRect(690, 15, 250, 35, 8, "#27152e");
 
       ctx.fillStyle = "#fff";
       ctx.font = "bold 14px system-ui";
-
       ctx.fillText(
         "BOSS HP: " + Math.max(0, bossHP) + "/" + bossMaxHP,
         703,
@@ -602,163 +587,192 @@ function initGame() {
   }
 
   function drawOverlay(title, subtitle) {
-    rounded(
-      canvasWidth / 2 - 210,
-      115,
-      420,
-      90,
-      12,
-      "#10251e"
-    );
+    roundRect(WIDTH / 2 - 220, 112, 440, 100, 12, "#10251e");
 
     ctx.fillStyle = "#fff";
     ctx.textAlign = "center";
     ctx.font = "bold 25px system-ui";
-    ctx.fillText(title, canvasWidth / 2, 151);
+    ctx.fillText(title, WIDTH / 2, 151);
 
     ctx.font = "15px system-ui";
-    ctx.fillText(subtitle, canvasWidth / 2, 179);
-
+    ctx.fillText(subtitle, WIDTH / 2, 181);
     ctx.textAlign = "left";
   }
 
   function draw() {
+    if (!ctx) return;
+
     drawBackground();
     drawCoins();
     drawPowerups();
     drawObstacles();
     drawFinish();
-    drawHero();
+
+    if (player) drawHero();
+
     drawHUD();
 
-    if (!running && !finished) {
-      drawOverlay(
-        activeBoss ? "BOSS BATTLE" : "READY, ADVENTURER?",
-        "Druk op Start / Retry om te beginnen"
-      );
+    if (!running && !finished && !gameOver) {
+      drawOverlay("READY, ADVENTURER?", "Press Start / Retry to begin");
     }
 
     if (finished) {
-      drawOverlay("STAGE CLEARED!", "Goed gedaan, avonturier!");
+      drawOverlay(
+        activeBoss ? "BOSS DEFEATED!" : "STAGE CLEARED!",
+        "Victory! Press Start / Retry for another run."
+      );
+    }
+
+    if (gameOver) {
+      drawOverlay("GAME OVER", "Press Start / Retry to try again.");
     }
   }
 
-  /* ===============================================
-     LEVEL WINNEN
-     =============================================== */
+  function completeLevelRun() {
+    if (finished || gameOver) return;
 
-  function complete() {
-    if (finished) return;
-
-    running = false;
     finished = true;
-
+    running = false;
     cancelAnimationFrame(raf);
-    clearTimeout(slideTimer);
 
-    const finishedLevel = activeLevel;
-    const bonus = 35 + getLocalLevel() * 7;
+    const level = activeLevel;
+    const bonus = 35 + localLevel() * 7;
 
-    // completeLevel in app.js geeft zelf 50 Crowns en 100 XP.
-    // Geef hier alleen de aanvullende beloning door.
+    // app.js gives 50 Crowns and 100 XP on first completion.
+    // Only add collected coins and the level bonus here.
     if (typeof window.completeLevel === "function") {
-      window.completeLevel(finishedLevel, bonus + runCoins);
+      window.completeLevel(level, runCoins + bonus);
     } else {
-      // Fallback als app.js niet beschikbaar is.
-      gameState.coins += 50 + bonus + runCoins;
-      gameState.xp += 100;
-      gameState.wins++;
+      const state = currentState();
 
-      if (!gameState.completed.includes(finishedLevel)) {
-        gameState.completed.push(finishedLevel);
-      }
+      if (state) {
+        const alreadyDone = state.completed.includes(level);
 
-      gameState.unlocked = Math.max(
-        gameState.unlocked,
-        finishedLevel + 1
-      );
+        state.coins += runCoins + bonus + (alreadyDone ? 0 : 50);
 
-      gameState.currentLevel = finishedLevel + 1;
+        if (!alreadyDone) {
+          state.completed.push(level);
+          state.wins++;
+          state.xp += 100;
+        }
 
-      if (typeof window.saveState === "function") {
-        window.saveState();
+        state.unlocked = Math.max(state.unlocked, level + 1);
+        state.currentLevel = Math.min(state.unlocked, level + 1);
+
+        if (typeof window.saveState === "function") window.saveState();
       }
     }
 
-    const status = document.getElementById("gameStatus");
-
-    if (status) {
-      status.textContent = activeBoss
-        ? "Eindbaas verslagen! Nieuwe voortgang vrijgespeeld!"
-        : "Level voltooid! +" + (50 + bonus + runCoins) + " Crowns en +100 XP!";
-    }
+    setStatus(
+      activeBoss
+        ? "Boss defeated! The next stage is unlocked!"
+        : "Stage cleared! +" + (runCoins + bonus) + " bonus Crowns."
+    );
 
     draw();
   }
 
-  /* ===============================================
-     SPELER EN OBSTAKELS BIJWERKEN
-     =============================================== */
+  function triggerGameOver() {
+    if (!running || gameOver || finished) return;
+
+    running = false;
+    gameOver = true;
+    player.dead = true;
+    player.deathFrame = 0;
+    deathTimer = DEATH_DURATION;
+
+    cancelAnimationFrame(raf);
+    setStatus("Game Over! Press Start / Retry to try again.");
+
+    raf = requestAnimationFrame(deathAnimation);
+  }
+
+  function deathAnimation(timestamp) {
+    if (!player || !player.dead) return;
+
+    player.deathFrame++;
+    draw();
+
+    if (player.deathFrame < deathTimer) {
+      raf = requestAnimationFrame(deathAnimation);
+    }
+  }
 
   function hitObstacle(obstacle) {
     if (obstacle.kind === "boss") {
-      // Alleen een actieve dash kan schade toebrengen.
       if (player.dash > 0 && bossCooldown <= 0) {
-        bossHP--;
+        bossHP = Math.max(0, bossHP - 1);
         bossCooldown = 45;
         player.dash = 0;
-
-        // Korte terugslag na een treffer.
-        player.x = Math.max(25, player.x - 12);
+        player.invulnerable = 20;
 
         if (bossHP <= 0) {
-          complete();
-          return true;
+          completeLevelRun();
+          return "complete";
         }
 
-        setStatus(
-          "Raak de eindbaas opnieuw met Shift! Nog " +
-          bossHP + " levens over."
-        );
-
-        return false;
+        showMessage("Boss hit! " + bossHP + " HP remaining.");
+        return "continue";
       }
 
-      // Shield voorkomt een botsing met een eindbaas.
       if (player.shield > 0) {
         player.shield = 0;
-        return false;
+        player.invulnerable = 25;
+        showMessage("Your shield blocked the boss attack!");
+        return "continue";
       }
 
-      // Botsen zonder dash stopt de poging.
-      running = false;
-      setStatus("De eindbaas heeft je geraakt! Probeer opnieuw.");
-      draw();
+      triggerGameOver();
+      return "stop";
+    }
 
-      return true;
+    if (obstacle.kind === "low") {
+      // Sliding safely avoids overhead obstacles.
+      if (player.sliding) return "continue";
+    }
+
+    if (obstacle.kind === "special") {
+      if (player.dash > 0) {
+        obstacle.hit = true;
+        runCoins += 5;
+        showMessage("Special obstacle smashed! +5 bonus Crowns.");
+        return "continue";
+      }
+
+      if (player.shield > 0) {
+        player.shield = 0;
+        obstacle.hit = true;
+        return "continue";
+      }
+
+      triggerGameOver();
+      return "stop";
     }
 
     if (player.dash > 0) {
-      // Een dash breekt gewone obstakels.
       obstacle.hit = true;
-      obstacle.x = -9999;
-      return false;
+      runCoins += 2;
+      return "continue";
     }
 
     if (player.shield > 0) {
       player.shield = 0;
       obstacle.hit = true;
-      obstacle.x = -9999;
-
-      setStatus("Je schild heeft je beschermd!");
-      return false;
+      showMessage("Your shield protected you!");
+      return "continue";
     }
 
-    running = false;
-    setStatus("Je bent geraakt! Spring, glijd of gebruik een dash.");
-    draw();
+    triggerGameOver();
+    return "stop";
+  }
 
-    return true;
+  function overlaps(a, b) {
+    return (
+      a.x < b.x + b.w &&
+      a.x + a.w > b.x &&
+      a.y < b.y + b.h &&
+      a.y + a.h > b.y
+    );
   }
 
   function tick(timestamp) {
@@ -768,24 +782,19 @@ function initGame() {
 
     const delta = Math.min((timestamp - lastFrame) / 16.67, 2);
     lastFrame = timestamp;
-
     elapsed += delta;
 
-    if (bossCooldown > 0) {
-      bossCooldown -= delta;
+    if (bossCooldown > 0) bossCooldown -= delta;
+    if (player.dash > 0) player.dash = Math.max(0, player.dash - delta);
+    if (player.shield > 0) player.shield = Math.max(0, player.shield - delta);
+    if (player.invulnerable > 0) player.invulnerable -= delta;
+
+    if (player.slideTimer > 0) {
+      player.slideTimer -= delta;
+
+      if (player.slideTimer <= 0) player.sliding = false;
     }
 
-    if (player.dash > 0) {
-      player.dash -= delta;
-
-      if (player.dash < 0) player.dash = 0;
-    }
-
-    if (player.shield > 0) {
-      player.shield -= delta;
-    }
-
-    // Zwaartekracht.
     player.vy += 0.62 * delta;
     player.y += player.vy * delta;
 
@@ -793,13 +802,20 @@ function initGame() {
       player.y = floor - player.h;
       player.vy = 0;
       player.ground = true;
+    } else {
+      player.ground = false;
     }
 
-    // Wereld beweegt naar links.
-    const speed = 3 + getLocalLevel() * 0.12;
+    const speed = 3 + localLevel() * 0.12;
     scroll += (player.dash > 0 ? speed + 4 : speed) * delta;
 
-    // Munten verzamelen.
+    const playerBox = {
+      x: player.x + 5,
+      y: player.y + (player.sliding ? 16 : 0),
+      w: player.w - 10,
+      h: player.sliding ? 25 : player.h
+    };
+
     for (const coin of coins) {
       if (coin.taken) continue;
 
@@ -814,87 +830,86 @@ function initGame() {
       }
     }
 
-    // Power-ups verzamelen.
-    for (const powerup of powerups) {
-      if (powerup.taken) continue;
+    for (const item of powerups) {
+      if (item.taken) continue;
 
-      const x = powerup.x - scroll;
+      const x = item.x - scroll;
 
       if (
         Math.abs(x - (player.x + 17)) < 23 &&
-        Math.abs(powerup.y - (player.y + 20)) < 35
+        Math.abs(item.y - (player.y + 20)) < 35
       ) {
-        powerup.taken = true;
+        item.taken = true;
 
-        if (powerup.kind === "crown") {
+        if (item.kind === "crown") {
           runCoins += 30;
-          setStatus("Kroon verzameld! +30 bonusmunten.");
+          showMessage("Crown collected! +30 bonus Crowns.");
         } else {
           player.shield = 300;
-          setStatus("Schild geactiveerd!");
+          showMessage("Shield activated!");
         }
       }
     }
 
-    // Botsingen controleren.
     for (const obstacle of obstacles) {
       if (obstacle.hit) continue;
 
       const x = obstacle.x - scroll;
 
-      if (x < -150 || x > canvasWidth + 100) continue;
+      if (x < -150 || x > WIDTH + 100) continue;
 
-      const playerHeight = player.sliding ? 25 : player.h;
-      const playerY = player.y + (player.sliding ? 16 : 0);
+      const obstacleBox = {
+        x,
+        y: floor - obstacle.h,
+        w: obstacle.w,
+        h: obstacle.h
+      };
 
-      const overlapsX =
-        x + obstacle.w > player.x + 5 &&
-        x < player.x + player.w - 5;
+      if (overlaps(playerBox, obstacleBox)) {
+        const result = hitObstacle(obstacle);
 
-      const overlapsY =
-        playerY + playerHeight > floor - obstacle.h + 5;
-
-      if (overlapsX && overlapsY) {
-        const stopped = hitObstacle(obstacle);
-
-        if (stopped || finished) return;
+        if (result === "stop" || result === "complete") return;
       }
     }
 
-    // Finishlijn voor gewone levels.
-    if (!activeBoss) {
-      const lastObstacle = obstacles[obstacles.length - 1];
-      const finishX = (lastObstacle ? lastObstacle.x : 1500) + 350;
+    if (!activeBoss && scroll >= finishWorldPosition()) {
+      completeLevelRun();
+      return;
+    }
 
-      if (scroll >= finishX) {
-        complete();
-        return;
+    if (messageTimer > 0) {
+      messageTimer -= delta;
+
+      if (messageTimer <= 0) {
+        temporaryMessage = "";
+
+        if (running) {
+          setStatus(activeBoss
+            ? "Use Dash to attack the boss!"
+            : "Collect Crowns and reach the finish!");
+        }
       }
     }
 
     draw();
-
     raf = requestAnimationFrame(tick);
   }
 
-  /* ===============================================
-     INPUT-EVENTS
-     =============================================== */
-
   function onKeyDown(event) {
-    if (!document.getElementById("game")) return;
+    if (!canvas || !document.getElementById("game")) return;
 
     const key = event.key;
+    const controls = [
+      "ArrowLeft", "ArrowRight", "ArrowUp",
+      "ArrowDown", " ", "Shift"
+    ];
+
+    if (controls.includes(key)) event.preventDefault();
 
     if (
-      ["ArrowLeft", "ArrowRight", "ArrowUp", " ", "ArrowDown", "Shift"]
-        .includes(key)
+      event.repeat &&
+      ["ArrowUp", "ArrowDown", " ", "Shift"].includes(key)
     ) {
-      event.preventDefault();
-    }
-
-    // Voorkom herhaald springen door ingedrukte toetsen.
-    if (event.repeat && ["ArrowUp", " ", "ArrowDown", "Shift"].includes(key)) {
       return;
     }
 
@@ -905,53 +920,45 @@ function initGame() {
     if (key === "Shift") dash();
   }
 
-  // Verwijder de oude listener als de game opnieuw wordt gestart.
-  if (window.crownQuestGame?.onKeyDown) {
-    window.removeEventListener(
-      "keydown",
-      window.crownQuestGame.onKeyDown
-    );
+  function initGame() {
+    canvas = document.getElementById("game");
+    if (!canvas) return;
+
+    ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    if (window.crownQuestGame?.canvas === canvas) {
+      startLevel();
+      return;
+    }
+
+    // Remove the previous game keyboard handler if present.
+    if (window.crownQuestGame?.onKeyDown) {
+      window.removeEventListener(
+        "keydown",
+        window.crownQuestGame.onKeyDown
+      );
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+
+    window.crownQuestGame = {
+      canvas,
+      onKeyDown,
+      startLevel
+    };
+
+    window.startLevel = startLevel;
+    window.doJump = jump;
+    window.doSlide = slide;
+    window.doDash = dash;
+    window.walk = move;
+
+    resetPlayer();
+    buildLevel();
+    draw();
   }
 
-  window.addEventListener("keydown", onKeyDown);
-
-  /* ===============================================
-     KOPPELING MET APP.JS
-     =============================================== */
-
-  window.crownQuestGame = {
-    canvas,
-    startLevel,
-    onKeyDown
-  };
-
-  window.startLevel = startLevel;
-  window.doJump = jump;
-  window.doSlide = slide;
-  window.doDash = dash;
-  window.walk = move;
-
-  // Zorg dat app.js initGame kan vinden.
+  // app.js expects initGame to exist before DOMContentLoaded.
   window.initGame = initGame;
-
-  resetPlayer();
-  build();
-  draw();
-}
-
-/* BELANGRIJK:
-   Deze koppeling staat BUITEN initGame.
-   Daardoor kan app.js het spel bij het laden starten. */
-window.initGame = initGame;
-
-// Als game.js wordt geladen nadat de pagina al klaar is,
-// initialiseer het spel alsnog.
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", () => {
-    if (document.getElementById("game")) {
-      initGame();
-    }
-  });
-} else if (document.getElementById("game")) {
-  initGame();
-}
+})();
