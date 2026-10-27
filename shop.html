@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Item Shop | Crown Quest</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+  <a class="brand" href="index.html">👑 CROWN <span>QUEST</span></a>
+  <div class="wallet">👑 <span data-coins>500</span> Crowns</div>
+</header>
+
+<nav>
+  <a href="index.html">🏠 Home</a>
+  <a href="levels.html">🗺️ World Map</a>
+  <a class="active" href="shop.html">🎁 Shop</a>
+  <a href="collection.html">🎒 Collection</a>
+  <a href="battlepass.html">🎟️ Battle Pass</a>
+  <a href="market.html">🤝 Market</a>
+</nav>
+
+<main>
+  <div class="head">
+    <div>
+      <h2>Crate Workshop</h2>
+      <p>Choose a crate, spin the wheel, and reveal your character!</p>
+    </div>
+    <span class="gold">👑 <b data-coins>500</b> Crowns</span>
+  </div>
+
+  <div class="grid">
+
+    <article class="panel item">
+      <div class="art">🛡️</div>
+      <span class="badge legendary">Hero character pool</span>
+      <h3>Hero Crate</h3>
+      <p>
+        Five adventurer characters. Legendary characters are harder to find.
+      </p>
+      <div class="item-foot">
+        <span class="gold">👑 150</span>
+        <button onclick="openCrateWheel('turtle')">Spin for 150</button>
+      </div>
+    </article>
+
+    <article class="panel item">
+      <div class="art">✨</div>
+      <span class="badge rare">Mystery pool</span>
+      <h3>Mini Crate</h3>
+      <p>
+        Find magical companions, from common characters to epic characters.
+      </p>
+      <div class="item-foot">
+        <span class="gold">👑 75</span>
+        <button onclick="openCrateWheel('mini')">Spin for 75</button>
+      </div>
+    </article>
+
+    <article class="panel item">
+      <div class="art">🦊</div>
+      <span class="badge common">Starter</span>
+      <h3>Forest Fox</h3>
+      <p>
+        Your first adventurer. This starter character cannot be sold.
+      </p>
+      <div class="item-foot">
+        <span class="gold">FREE</span>
+        <button class="secondary" disabled>Owned</button>
+      </div>
+    </article>
+
+  </div>
+
+  <section class="panel item" style="margin-top:18px;text-align:center">
+    <h2>🎡 Crate Roulette</h2>
+    <p>The wheel spins while your character is being selected.</p>
+
+    <div class="wheel-pointer">▼</div>
+
+    <div class="wheel-wrap">
+      <div class="wheel" id="crateWheel">
+        <div class="wheel-labels">
+          <span>COMMON</span>
+          <span>RARE</span>
+          <span>EPIC</span>
+          <span>LEGEND</span>
+          <span>RARE</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="crateResult">
+      <p>Choose a crate above to spin the wheel.</p>
+    </div>
+
+    <button
+      id="spinCrateButton"
+      onclick="notify('Choose a crate above first.')"
+      class="secondary">
+      Waiting for crate…
+    </button>
+  </section>
+
+  <div class="notice">
+    Character ownership and the marketplace are saved locally in this browser.
+    Other players cannot see your collection in this prototype.
+  </div>
+
+  <div class="footer">
+    Crown Quest browser-game prototype.
+  </div>
+</main>
+
+<div id="toast" class="toast"></div>
+
+<script src="app.js"></script>
+
+<script>
+  function openCrateWheel(type) {
+    const button = document.getElementById("spinCrateButton");
+
+    if (button.disabled) return;
+
+    button.disabled = false;
+    buyCrate(type);
+  }
+</script>
+
+</body>
+</html>
