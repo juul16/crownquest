@@ -1,0 +1,146 @@
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Leaderboard - Crown Quest</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+<a class="brand" href="index.html">👑 CROWN QUEST</a>
+<div class="wallet">👑 <span data-coins>500</span> Crowns</div>
+</header>
+
+<nav>
+<a href="index.html">Home</a>
+<a href="levels.html">Levels</a>
+<a href="shop.html">Shop</a>
+<a href="collection.html">Collection</a>
+<a href="battlepass.html">Battle Pass</a>
+<a href="market.html">Market</a>
+<a href="leaderboard.html">Leaderboard</a>
+</nav>
+
+<main>
+<section class="panel">
+<h1>🏆 Leaderboard</h1>
+<p>Save your player name and compare your progress on this browser.</p>
+
+<label>Player Name
+<input id="playerName" maxlength="18" placeholder="Enter your name">
+</label>
+<br><br>
+<button onclick="savePlayerName()">Save Name</button>
+<button class="secondary" onclick="renderBoards()">Refresh</button>
+
+<div class="notice">
+This leaderboard is stored locally. It is not shared with other players or devices.
+</div>
+</section>
+
+<section class="grid2">
+<div class="panel">
+<h2>👑 Most Crowns</h2>
+<div id="crownsBoard"></div>
+</div>
+
+<div class="panel">
+<h2>🎮 Highest Level</h2>
+<div id="levelsBoard"></div>
+</div>
+</section>
+</main>
+
+<script src="app.js"></script>
+<script>
+const BOARD_KEY = "crownQuestLeaderboard";
+
+function getBoard() {
+    try {
+        const board = JSON.parse(localStorage.getItem(BOARD_KEY) || "[]");
+        return Array.isArray(board) ? board : [];
+    } catch {
+        return [];
+    }
+}
+
+function savePlayerName() {
+    const input = document.getElementById("playerName");
+    const name = input.value.trim().slice(0, 18);
+
+    if (!name) {
+        showMessage("Enter a player name first.");
+        return;
+    }
+
+    gameData.name = name;
+    saveGameData();
+    renderBoards();
+    showMessage("Player name saved!");
+}
+
+function renderBoards() {
+    document.getElementById("playerName").value = gameData.name;
+
+    let board = getBoard();
+
+    const existing = board.find(player => player.name === gameData.name);
+
+    if (existing) {
+        existing.coins = gameData.coins;
+        existing.level = gameData.unlocked;
+    } else {
+        board.push({
+            name: gameData.name,
+            coins: gameData.coins,
+            level: gameData.unlocked
+        });
+    }
+
+    localStorage.setItem(BOARD_KEY, JSON.stringify(board));
+
+    function renderList(targetId, key) {
+        const target = document.getElementById(targetId);
+
+        const sorted = [...board]
+            .sort((a, b) => b[key] - a[key])
+            .slice(0, 10);
+
+        target.innerHTML = "";
+
+        if (!sorted.length) {
+            target.textContent = "No scores yet.";
+            return;
+        }
+
+        sorted.forEach((player, index) => {
+            const row = document.createElement("div");
+            row.className = "row";
+
+            const rank = document.createElement("b");
+            rank.textContent = (index + 1) + ".";
+
+            const name = document.createElement("span");
+            name.className = "grow";
+            name.textContent = player.name;
+
+            const score = document.createElement("b");
+            score.className = "gold";
+            score.textContent = player[key];
+
+            row.append(rank, name, score);
+            target.appendChild(row);
+        });
+    }
+
+    renderList("crownsBoard", "coins");
+    renderList("levelsBoard", "level");
+}
+
+document.addEventListener("DOMContentLoaded", renderBoards);
+</script>
+</body>
+</html>
+```
