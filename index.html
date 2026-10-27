@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#101329">
+  <meta name="description" content="Speel Crown Quest! Ren door magische werelden, verzamel poppetjes en verdien kroontjes.">
+  <title>Crown Quest — Jouw avontuur</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <header>
+    <a class="brand" href="index.html">
+      👑 CROWN <span>QUEST</span>
+    </a>
+
+    <div class="wallet">
+      👑 <span data-coins>500</span> kroontjes
+    </div>
+  </header>
+
+  <nav aria-label="Hoofdnavigatie">
+    <a href="index.html" class="active">🏠 Home</a>
+    <a href="levels.html">🎮 Levels</a>
+    <a href="shop.html">🛍️ Shop</a>
+    <a href="collection.html">🎒 Collectie</a>
+    <a href="battlepass.html">🎟️ Battlepass</a>
+    <a href="market.html">🤝 Markt</a>
+  </nav>
+
+  <main>
+    <section class="hero">
+      <div class="panel intro">
+        <div class="eyebrow">COLLECT · RUN · RULE</div>
+
+        <h1>
+          Jouw avontuur.<br>
+          <span>Jouw kroon.</span>
+        </h1>
+
+        <p>
+          Ren door magische werelden, spring over obstakels,
+          versla eindbazen en verzamel bijzondere poppetjes.
+          Verdien kroontjes en ontgrendel steeds meer beloningen!
+        </p>
+
+        <div class="actions">
+          <a class="button" href="levels.html">▶ Speel nu</a>
+          <a class="button secondary" href="shop.html">🛍️ Open de shop</a>
+        </div>
+
+        <div class="stats">
+          <div class="stat">
+            <b><span data-unlocked>1</span> / 210</b>
+            <span>Levels vrijgespeeld</span>
+          </div>
+
+          <div class="stat">
+            <b data-pet-count>1</b>
+            <span>Poppetjes</span>
+          </div>
+
+          <div class="stat">
+            <b id="wins">0</b>
+            <span>Levels gehaald</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel showcase">
+        <div class="orbit"></div>
+        <div class="orbit two"></div>
+
+        <span class="spark sp1">✦</span>
+        <span class="spark sp2">✧</span>
+        <span class="spark sp3">✦</span>
+
+        <div class="pet-big" data-showcase>🦊</div>
+      </div>
+    </section>
+
+    <section style="margin-top: 26px;">
+      <div class="head">
+        <div>
+          <h2>Jouw avontuur begint</h2>
+          <p>Wat ga je vandaag ontdekken?</p>
+        </div>
+      </div>
+
+      <div class="grid">
+        <a class="panel item" href="levels.html">
+          <div class="art">🎮</div>
+          <h3>Speel levels</h3>
+          <p>
+            Ren door verschillende werelden, spring over obstakels
+            en neem het op tegen eindbazen!
+          </p>
+          <span class="badge rare">210 levels</span>
+        </a>
+
+        <a class="panel item" href="shop.html">
+          <div class="art">📦</div>
+          <h3>Open crates</h3>
+          <p>
+            Open kisten en probeer gewone, zeldzame,
+            epische en legendarische poppetjes te verzamelen.
+          </p>
+          <span class="badge legendary">Speciale beloningen</span>
+        </a>
+
+        <a class="panel item" href="collection.html">
+          <div class="art">🎒</div>
+          <h3>Jouw collectie</h3>
+          <p>
+            Bekijk je verzameling en ontdek welke poppetjes
+            je nog kunt vrijspelen.
+          </p>
+          <span class="badge rare">Verzamel ze allemaal</span>
+        </a>
+
+        <a class="panel item" href="battlepass.html">
+          <div class="art">🎟️</div>
+          <h3>Battlepass</h3>
+          <p>
+            Verdien XP door te spelen en probeer de
+            beloningen van het seizoen vrij te spelen.
+          </p>
+          <span class="badge epic">Seizoen 1</span>
+        </a>
+
+        <a class="panel item" href="market.html">
+          <div class="art">🤝</div>
+          <h3>De markt</h3>
+          <p>
+            Bekijk aanbiedingen en gebruik je kroontjes
+            voor beschikbare poppetjes.
+          </p>
+          <span class="badge rare">Ontdek de markt</span>
+        </a>
+
+        <a class="panel item" href="levels.html">
+          <div class="art">🐉</div>
+          <h3>Versla de eindbazen</h3>
+          <p>
+            Bereik level 21 in een wereld en bereid je voor
+            op de eindbaas!
+          </p>
+          <span class="badge legendary">Level 21</span>
+        </a>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <p>
+        👑 <strong>Crown Quest</strong> — jouw avontuur, jouw kroon.
+      </p>
+      <p>
+        Je voortgang wordt lokaal in deze browser opgeslagen.
+        De markt is niet automatisch verbonden met andere spelers.
+      </p>
+    </footer>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="app.js"></script>
+
+  <script>
+    // Toon het aantal behaalde levels vanuit de opgeslagen spelgegevens.
+    function updateHomeStats() {
+      const winsElement = document.getElementById("wins");
+
+      if (!winsElement) return;
+
+      try {
+        const savedState = localStorage.getItem("crownQuestMultiPage_v1");
+        const state = savedState ? JSON.parse(savedState) : {};
+        winsElement.textContent = Number(state.wins) || 0;
+      } catch (error) {
+        console.warn("De opgeslagen Crown Quest-statistieken konden niet worden gelezen.", error);
+        winsElement.textContent = "0";
+      }
+    }
+
+    updateHomeStats();
+  </script>
+</body>
+</html>
