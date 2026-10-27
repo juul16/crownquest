@@ -1,0 +1,134 @@
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Levels - Crown Quest</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+<a class="brand" href="index.html">👑 CROWN QUEST</a>
+<div class="wallet">👑 <span data-coins>500</span> Crowns</div>
+</header>
+
+<nav>
+<a href="index.html">Home</a>
+<a href="levels.html">Levels</a>
+<a href="shop.html">Shop</a>
+<a href="collection.html">Collection</a>
+<a href="battlepass.html">Battle Pass</a>
+<a href="market.html">Market</a>
+<a href="leaderboard.html">Leaderboard</a>
+</nav>
+
+<main>
+<section class="panel">
+<h1>🌍 Adventure Worlds</h1>
+<p>Complete levels, collect Crowns and defeat the boss to continue your adventure.</p>
+
+<label>Select World
+<select id="worldSelect">
+<option value="1">World 1 — Emerald Forest</option>
+<option value="2">World 2 — Crystal Caves</option>
+<option value="3">World 3 — Sunset Desert</option>
+<option value="4">World 4 — Frozen Peaks</option>
+<option value="5">World 5 — Shadow Kingdom</option>
+<option value="6">World 6 — Cosmic Realm</option>
+</select>
+</label>
+
+<h2 id="worldHeading">Emerald Forest</h2>
+<div id="levelGrid" class="levelmap"></div>
+
+<div class="notice">
+Every world contains 20 normal levels and a boss at level 21.
+Jump, slide and dash to dodge obstacles!
+</div>
+</section>
+
+<section class="panel">
+<h2 id="gameTitle">Your Adventure</h2>
+<canvas id="game" width="900" height="360"></canvas>
+
+<div class="controls">
+<button onclick="startLevel()">▶ Start Level</button>
+<button onclick="CrownQuestGame && CrownQuestGame.moveLeft()">⬅ Left</button>
+<button onclick="CrownQuestGame && CrownQuestGame.jump()">⬆ Jump</button>
+<button onclick="CrownQuestGame && CrownQuestGame.slide()">⬇ Slide</button>
+<button onclick="CrownQuestGame && CrownQuestGame.dash()">⚡ Dash</button>
+<button onclick="CrownQuestGame && CrownQuestGame.moveRight()">➡ Right</button>
+</div>
+<p class="muted">Keyboard: A/D or arrow keys to move, W/SPACE to jump, S to slide, SHIFT to dash.</p>
+<p id="levelStatus">Choose a level to begin.</p>
+</section>
+</main>
+
+<script src="app.js"></script>
+<script src="game.js"></script>
+<script>
+let selectedWorld = 1;
+let selectedLevel = 1;
+
+function startLevel() {
+    if (window.CrownQuestGame) {
+        CrownQuestGame.setLevel(selectedLevel);
+        CrownQuestGame.start();
+        document.getElementById("levelStatus").textContent =
+            "Playing level " + selectedLevel;
+    }
+}
+
+function renderLevels() {
+    const grid = document.getElementById("levelGrid");
+    grid.innerHTML = "";
+
+    for (let i = 1; i <= 21; i++) {
+        const globalLevel = (selectedWorld - 1) * 21 + i;
+        const unlocked = globalLevel <= gameData.unlocked;
+        const button = document.createElement("button");
+
+        button.className = "leveltile" +
+            (i === 21 ? " boss" : "") +
+            (!unlocked ? " locked" : "");
+
+        button.disabled = !unlocked;
+        button.innerHTML = "<b>" + (i === 21 ? "👹" : i) +
+            "</b><span>" + (i === 21 ? "BOSS" : "LEVEL") + "</span>";
+
+        button.onclick = () => {
+            selectedLevel = globalLevel;
+            document.getElementById("gameTitle").textContent =
+                (i === 21 ? "Boss Battle " : "Level ") + globalLevel;
+            document.getElementById("levelStatus").textContent =
+                "Selected level " + globalLevel + ". Press Start Level.";
+            CrownQuestGame.setLevel(globalLevel);
+            renderLevels();
+        };
+
+        grid.appendChild(button);
+    }
+}
+
+document.getElementById("worldSelect").addEventListener("change", event => {
+    const target = Number(event.target.value);
+
+    if (target > Math.ceil(gameData.unlocked / 21)) {
+        showMessage("Complete the previous world first!");
+        event.target.value = selectedWorld;
+        return;
+    }
+
+    selectedWorld = target;
+    document.getElementById("worldHeading").textContent =
+        WORLDS[selectedWorld - 1];
+    selectedLevel = (selectedWorld - 1) * 21 + 1;
+    renderLevels();
+});
+
+renderLevels();
+</script>
+</body>
+</html>
+```
