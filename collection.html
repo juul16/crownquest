@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Collectie | Crown Quest</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <a class="brand" href="index.html">👑 CROWN <span>QUEST</span></a>
+    <div class="wallet">👑 <span data-coins>500</span> kroontjes</div>
+  </header>
+
+  <nav>
+    <a href="index.html">🏠 Home</a>
+    <a href="levels.html">🎮 Levels</a>
+    <a href="shop.html">🛍️ Shop</a>
+    <a href="collection.html" class="active">🎒 Collectie</a>
+    <a href="battlepass.html">🎟️ Battlepass</a>
+    <a href="market.html">🤝 Markt</a>
+  </nav>
+
+  <main>
+    <div class="head">
+      <div>
+        <h2>🎒 Mijn collectie</h2>
+        <p>Bekijk je poppetjes en kies je favoriete avonturier.</p>
+      </div>
+      <span class="badge common" id="petCount">0 poppetjes</span>
+    </div>
+
+    <div class="notice">
+      Nieuwe poppetjes uit de Shop, Battlepass en Markt verschijnen hier automatisch,
+      zolang alle pagina's dezelfde versie van app.js gebruiken.
+    </div>
+
+    <div class="grid" id="collectionGrid"></div>
+
+    <div class="footer">
+      Je collectie wordt lokaal opgeslagen in deze browser.
+    </div>
+  </main>
+
+  <div id="toast" class="toast"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
