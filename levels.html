@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>World Map | Crown Quest</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+  <a class="brand" href="index.html">👑 CROWN <span>QUEST</span></a>
+  <div class="wallet">👑 <span data-coins>500</span> Crowns</div>
+</header>
+
+<nav>
+  <a href="index.html">🏠 Home</a>
+  <a class="active" href="levels.html">🗺️ World Map</a>
+  <a href="shop.html">🎁 Shop</a>
+  <a href="collection.html">🎒 Collection</a>
+  <a href="battlepass.html">🎟️ Battle Pass</a>
+  <a href="market.html">🤝 Market</a>
+</nav>
+
+<main>
+  <div class="head">
+    <div>
+      <h2>Adventure Map</h2>
+      <p>Complete 20 stages, then defeat the boss to unlock the next world.</p>
+    </div>
+    <span class="badge rare" id="levelLabel">World 1 · Level 1</span>
+  </div>
+
+  <div class="levelmap" id="levelMap"></div>
+
+  <section class="panel gamebox">
+    <div class="gamebar">
+      <strong id="worldName">🌿 Emerald Jungle</strong>
+      <span class="small" id="gameStatus">Ready for adventure!</span>
+    </div>
+
+    <div class="canvaswrap">
+      <canvas id="game" width="960" height="380"></canvas>
+    </div>
+
+    <div class="controls">
+      <span class="small">
+        Keyboard: ← → move · Space/↑ jump · ↓ slide · Shift dash
+      </span>
+
+      <div class="arrows">
+        <button class="secondary" onclick="walk(-1)">◀</button>
+        <button onclick="doJump()">⬆ Jump</button>
+        <button class="secondary" onclick="walk(1)">▶</button>
+        <button class="secondary" onclick="doSlide()">⬇ Slide</button>
+        <button class="secondary" onclick="doDash()">⚡ Dash</button>
+      </div>
+
+      <button class="secondary" onclick="startLevel()">↻ Start / Retry</button>
+    </div>
+
+    <div class="notice">
+      Collect gold coins and glowing power-ups. Use your dash to attack the
+      boss. Each victory earns Crowns and Battle Pass XP.
+    </div>
+  </section>
+
+  <div class="footer">
+    Crown Quest browser-game prototype. Progress is saved in this browser.
+    The marketplace is local and is not shared between players.
+  </div>
+</main>
+
+<div id="toast" class="toast"></div>
+
+<script src="app.js"></script>
+<script src="game.js"></script>
+
+</body>
+</html>
