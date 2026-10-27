@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Battlepass | Crown Quest</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <a class="brand" href="index.html">👑 CROWN <span>QUEST</span></a>
+    <div class="wallet">👑 <span data-coins>500</span> kroontjes</div>
+  </header>
+
+  <nav>
+    <a href="index.html">🏠 Home</a>
+    <a href="levels.html">🎮 Levels</a>
+    <a href="shop.html">🛍️ Shop</a>
+    <a href="collection.html">🎒 Collectie</a>
+    <a href="battlepass.html" class="active">🎟️ Battlepass</a>
+    <a href="market.html">🤝 Markt</a>
+  </nav>
+
+  <main>
+    <div class="head">
+      <div>
+        <h2>🎟️ Battlepass: Crown Valley</h2>
+        <p>Voltooi levels, verdien XP en verzamel speciale beloningen.</p>
+      </div>
+      <span class="badge epic">Seizoen 1</span>
+    </div>
+
+    <section class="panel item" style="margin-bottom:15px">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
+        <div>
+          <span class="badge rare">Jouw voortgang</span>
+          <h3>Battlepass level <span id="bpLevel">1</span> / 10</h3>
+          <p style="margin:0">XP voor de volgende tier: <span id="bpXp">0 / 100</span></p>
+        </div>
+        <span style="font-size:48px" aria-hidden="true">🎟️</span>
+      </div>
+
+      <div class="progress" style="margin-top:16px">
+        <span id="bpBar" style="width:0%"></span>
+      </div>
+    </section>
+
+    <h2>🏆 Beloningen</h2>
+    <p>Speel tiers vrij en druk op de knop om je beloning op te halen.</p>
+
+    <div class="grid" id="passGrid"></div>
+
+    <div class="footer">
+      Je XP en geclaimde beloningen worden lokaal in deze browser opgeslagen.
+    </div>
+  </main>
+
+  <div id="toast" class="toast"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
