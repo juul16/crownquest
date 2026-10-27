@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Markt & Trade | Crown Quest</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <a class="brand" href="index.html">👑 CROWN <span>QUEST</span></a>
+    <div class="wallet">👑 <span data-coins>500</span> kroontjes</div>
+  </header>
+
+  <nav>
+    <a href="index.html">🏠 Home</a>
+    <a href="levels.html">🎮 Levels</a>
+    <a href="shop.html">🛍️ Shop</a>
+    <a href="collection.html">🎒 Collectie</a>
+    <a href="battlepass.html">🎟️ Battlepass</a>
+    <a href="market.html" class="active">🤝 Markt</a>
+  </nav>
+
+  <main>
+    <div class="head">
+      <div>
+        <h2>Markt & Trade</h2>
+        <p>Koop en verkoop poppetjes met je kroontjes.</p>
+      </div>
+      <span class="badge rare">Demo</span>
+    </div>
+
+    <div class="notice">
+      Dit is een lokale markt. Je aanbiedingen zijn alleen zichtbaar in jouw browser,
+      niet voor andere spelers.
+    </div>
+
+    <section class="panel item">
+      <h3>🛍️ Beschikbare aanbiedingen</h3>
+      <p>Koop hier poppetjes die je eerder op deze markt hebt gezet.</p>
+      <div class="rows" id="marketRows"></div>
+    </section>
+
+    <section class="panel item" style="margin-top:15px">
+      <h3>🏷️ Een poppetje aanbieden</h3>
+      <p>Kies een poppetje uit je collectie en stel een prijs in.</p>
+
+      <div class="formrow">
+        <select id="sellPet" aria-label="Kies een poppetje">
+          <option value="">Collectie laden...</option>
+        </select>
+
+        <input
+          type="number"
+          id="sellPrice"
+          min="1"
+          max="10000"
+          value="50"
+          aria-label="Prijs in kroontjes"
+        >
+
+        <button type="button" onclick="listPet()">Zet te koop</button>
+      </div>
+
+      <p class="small">Je startpoppetje kan niet worden verkocht.</p>
+    </section>
+
+    <section class="panel item" style="margin-top:15px">
+      <h3>🤝 Speler tegen speler ruilen</h3>
+      <p>
+        Online ruilen met echte spelers is nog niet beschikbaar.
+        Daarvoor zijn accounts en een server nodig.
+      </p>
+      <button
+        type="button"
+        class="secondary"
+        onclick="notify('Online ruilen is nog niet beschikbaar.')"
+      >
+        Ruilsysteem bekijken
+      </button>
+    </section>
+
+    <div class="footer">
+      Crown Quest — lokale marktdemo. Aankopen en aanbiedingen worden in deze browser opgeslagen.
+    </div>
+  </main>
+
+  <div id="toast" class="toast"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
